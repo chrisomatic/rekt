@@ -57,6 +57,8 @@ int main(void)
     SetTargetFPS(60);                   // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
+    Model girl = LoadModel("models/female1.obj");
+
     // Main game loop
     while (!WindowShouldClose())        // Detect window close button or ESC key
     {
@@ -153,6 +155,8 @@ int main(void)
                 DrawCube((Vector3){ -16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, BLUE);     // Draw a blue wall
                 DrawCube((Vector3){ 16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, LIME);      // Draw a green wall
                 DrawCube((Vector3){ 0.0f, 2.5f, 16.0f }, 32.0f, 5.0f, 1.0f, GOLD);      // Draw a yellow wall
+
+                DrawModel(girl, (Vector3){0.0,0.0,0.0}, 1.0, BLANK);
 
                 // Draw some cubes around
                 for (int i = 0; i < MAX_COLUMNS; i++)
