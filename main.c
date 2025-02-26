@@ -13,7 +13,9 @@
 *
 ********************************************************************************************/
 
+#include <stdio.h>
 #include "raylib.h"
+#include "raymath.h"
 #include "rcamera.h"
 
 #define MAX_COLUMNS 20
@@ -25,10 +27,14 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    const int screenWidth = 800;
-    const int screenHeight = 450;
+    const int screenWidth = 1200;
+    const int screenHeight = 800;
 
     InitWindow(screenWidth, screenHeight, "raylib [core] example - 3d camera first person");
+    SetWindowMinSize(screenWidth, screenHeight);
+
+    ClearWindowState(0);
+    MaximizeWindow();
 
     // Define the camera to look into our 3d world (position, target, up vector)
     Camera camera = { 0 };
@@ -38,7 +44,7 @@ int main(void)
     camera.fovy = 60.0f;                                // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
 
-    int cameraMode = CAMERA_FIRST_PERSON;
+    int cameraMode = CAMERA_FREE;
 
     // Generates some random columns
     float heights[MAX_COLUMNS] = { 0 };
@@ -55,96 +61,52 @@ int main(void)
     DisableCursor();                    // Limit cursor to relative movement inside the window
 
     SetTargetFPS(60);                   // Set our game to run at 60 frames-per-second
-    //--------------------------------------------------------------------------------------
 
     Model girl = LoadModel("models/female1.obj");
 
+    Texture2D texture = LoadTexture("models/female1.png");
+    girl.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+    float cam_offset = 2.0;
+
     // Main game loop
-    while (!WindowShouldClose())        // Detect window close button or ESC key
+    for(;;)
     {
-        // Update
-        //----------------------------------------------------------------------------------
-        // Switch camera mode
-        if (IsKeyPressed(KEY_ONE))
+        if (IsKeyPressed(KEY_Q))
         {
-            cameraMode = CAMERA_FREE;
-            camera.up = (Vector3){ 0.0f, 1.0f, 0.0f }; // Reset roll
-        }
-
-        if (IsKeyPressed(KEY_TWO))
-        {
-            cameraMode = CAMERA_FIRST_PERSON;
-            camera.up = (Vector3){ 0.0f, 1.0f, 0.0f }; // Reset roll
-        }
-
-        if (IsKeyPressed(KEY_THREE))
-        {
-            cameraMode = CAMERA_THIRD_PERSON;
-            camera.up = (Vector3){ 0.0f, 1.0f, 0.0f }; // Reset roll
-        }
-
-        if (IsKeyPressed(KEY_FOUR))
-        {
-            cameraMode = CAMERA_ORBITAL;
-            camera.up = (Vector3){ 0.0f, 1.0f, 0.0f }; // Reset roll
+            break;
         }
 
         // Switch camera projection
-        if (IsKeyPressed(KEY_P))
+        if (IsKeyPressed(KEY_ESCAPE))
         {
-            if (camera.projection == CAMERA_PERSPECTIVE)
+            if(IsCursorHidden())
             {
-                // Create isometric view
-                cameraMode = CAMERA_THIRD_PERSON;
-                // Note: The target distance is related to the render distance in the orthographic projection
-                camera.position = (Vector3){ 0.0f, 2.0f, -100.0f };
-                camera.target = (Vector3){ 0.0f, 2.0f, 0.0f };
-                camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-                camera.projection = CAMERA_ORTHOGRAPHIC;
-                camera.fovy = 20.0f; // near plane width in CAMERA_ORTHOGRAPHIC
-                CameraYaw(&camera, -135 * DEG2RAD, true);
-                CameraPitch(&camera, -45 * DEG2RAD, true, true, false);
+                EnableCursor();
             }
-            else if (camera.projection == CAMERA_ORTHOGRAPHIC)
+            else
             {
-                // Reset to default view
-                cameraMode = CAMERA_THIRD_PERSON;
-                camera.position = (Vector3){ 0.0f, 2.0f, 10.0f };
-                camera.target = (Vector3){ 0.0f, 2.0f, 0.0f };
-                camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-                camera.projection = CAMERA_PERSPECTIVE;
-                camera.fovy = 60.0f;
+                DisableCursor();
             }
         }
 
-        // Update camera computes movement internally depending on the camera mode
-        // Some default standard keyboard/mouse inputs are hardcoded to simplify use
-        // For advanced camera controls, it's recommended to compute camera movement manually
-        UpdateCamera(&camera, cameraMode);                  // Update camera
+        if (IsKeyPressed(KEY_P))
+        {
+            if(cameraMode == CAMERA_THIRD_PERSON)
+            {
+                cameraMode = CAMERA_FIRST_PERSON;
+                camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+                camera.position.z += 2.0;
+            }
+            else
+            {
+                cameraMode = CAMERA_THIRD_PERSON;
+                camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+                camera.position.z -= 2.0;
+            }
+        }
 
-/*
-        // Camera PRO usage example (EXPERIMENTAL)
-        // This new camera function allows custom movement/rotation values to be directly provided
-        // as input parameters, with this approach, rcamera module is internally independent of raylib inputs
-        UpdateCameraPro(&camera,
-            (Vector3){
-                (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))*0.1f -      // Move forward-backward
-                (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))*0.1f,    
-                (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))*0.1f -   // Move right-left
-                (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))*0.1f,
-                0.0f                                                // Move up-down
-            },
-            (Vector3){
-                GetMouseDelta().x*0.05f,                            // Rotation: yaw
-                GetMouseDelta().y*0.05f,                            // Rotation: pitch
-                0.0f                                                // Rotation: roll
-            },
-            GetMouseWheelMove()*2.0f);                              // Move to target (zoom)
-*/
-        //----------------------------------------------------------------------------------
+        UpdateCamera(&camera, cameraMode);
 
-        // Draw
-        //----------------------------------------------------------------------------------
         BeginDrawing();
 
             ClearBackground(RAYWHITE);
@@ -156,8 +118,6 @@ int main(void)
                 DrawCube((Vector3){ 16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, LIME);      // Draw a green wall
                 DrawCube((Vector3){ 0.0f, 2.5f, 16.0f }, 32.0f, 5.0f, 1.0f, GOLD);      // Draw a yellow wall
 
-                DrawModel(girl, (Vector3){0.0,0.0,0.0}, 1.0, BLANK);
-
                 // Draw some cubes around
                 for (int i = 0; i < MAX_COLUMNS; i++)
                 {
@@ -166,10 +126,10 @@ int main(void)
                 }
 
                 // Draw player cube
-                if (cameraMode == CAMERA_THIRD_PERSON)
+                if (cameraMode == CAMERA_FREE)
                 {
-                    DrawCube(camera.target, 0.5f, 0.5f, 0.5f, PURPLE);
-                    DrawCubeWires(camera.target, 0.5f, 0.5f, 0.5f, DARKPURPLE);
+                    float rot = Vector2Angle((Vector2){camera.target.x, camera.target.z},(Vector2){1.0,0.0});
+                    DrawModelEx(girl, camera.target, (Vector3) {0.0,1.0,0.0}, (180.0/3.14159)*rot, (Vector3){1.0,1.0,1.0}, WHITE);
                 }
 
             EndMode3D();
@@ -200,13 +160,9 @@ int main(void)
             DrawText(TextFormat("- Up: (%06.3f, %06.3f, %06.3f)", camera.up.x, camera.up.y, camera.up.z), 610, 90, 10, BLACK);
 
         EndDrawing();
-        //----------------------------------------------------------------------------------
     }
 
-    // De-Initialization
-    //--------------------------------------------------------------------------------------
-    CloseWindow();        // Close window and OpenGL context
-    //--------------------------------------------------------------------------------------
+    CloseWindow();
 
     return 0;
 }
