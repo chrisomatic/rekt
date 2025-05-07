@@ -4,8 +4,11 @@ typedef struct
 {
     Vector3 vel;
     Vector3 pos;
-    float speed;
+    Vector3 pos_prior;
     float height;
+    float run_speed;
+    float jump_speed;
+    float facing_angle; // degrees
 } Player;
 
 extern Player player;

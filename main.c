@@ -14,6 +14,8 @@ float heights[MAX_COLUMNS] = { 0 };
 Vector3 positions[MAX_COLUMNS] = { 0 };
 Color colors[MAX_COLUMNS] = { 0 };
 
+bool g_debug = false;
+
 void init();
 void update();
 void draw();
@@ -93,23 +95,27 @@ void draw()
             // Draw some cubes around
             for (int i = 0; i < MAX_COLUMNS; i++)
             {
-                DrawCube(positions[i], 2.0f, heights[i], 2.0f, colors[i]);
-                DrawCubeWires(positions[i], 2.0f, heights[i], 2.0f, MAROON);
+                if(g_debug) DrawCubeWires(positions[i], 2.0f, heights[i], 2.0f, MAROON);
+                else        DrawCube(positions[i], 2.0f, heights[i], 2.0f, colors[i]);
             }
-
 
             player_draw();
 
         EndMode3D();
 
         // Draw info boxes
-        DrawRectangle(600, 5, 195, 100, Fade(SKYBLUE, 0.5f));
-        DrawRectangleLines(600, 5, 195, 100, BLUE);
+        if(g_debug)
+        {
+            DrawRectangle(600, 5, 195, 100, Fade(SKYBLUE, 0.5f));
+            DrawRectangleLines(600, 5, 195, 100, BLUE);
 
-        DrawText("Camera status:", 610, 15, 10, BLACK);
-        DrawText(TextFormat("- Position: (%06.3f, %06.3f, %06.3f)", camera.position.x, camera.position.y, camera.position.z), 610, 30, 10, BLACK);
-        DrawText(TextFormat("- Target: (%06.3f, %06.3f, %06.3f)", camera.target.x, camera.target.y, camera.target.z), 610, 45, 10, BLACK);
-        DrawText(TextFormat("- Up: (%06.3f, %06.3f, %06.3f)", camera.up.x, camera.up.y, camera.up.z), 610, 60, 10, BLACK);
+            DrawText("Camera status:", 610, 15, 10, BLACK);
+            DrawText(TextFormat("- Position: (%06.3f, %06.3f, %06.3f)", camera.position.x, camera.position.y, camera.position.z), 610, 30, 10, BLACK);
+            DrawText(TextFormat("- Target: (%06.3f, %06.3f, %06.3f)", camera.target.x, camera.target.y, camera.target.z), 610, 45, 10, BLACK);
+            DrawText(TextFormat("- Up: (%06.3f, %06.3f, %06.3f)", camera.up.x, camera.up.y, camera.up.z), 610, 60, 10, BLACK);
+            DrawText(TextFormat("- Player: (%06.3f, %06.3f, %06.3f)", player.pos.x, player.pos.y, player.pos.z), 610, 75, 10, BLACK);
+            DrawText(TextFormat("- Vel: (%06.3f, %06.3f, %06.3f)", player.vel.x, player.vel.y, player.vel.z), 610, 90, 10, BLACK);
+        }
 
     EndDrawing();
 }
