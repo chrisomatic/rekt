@@ -12,11 +12,19 @@
 Player player = {0};
 Camera camera = {0};
 Model girl;
+Model greenman;
+
+ModelAnimation *modelAnimations;
+int animsCount = 0;
+unsigned int animIndex = 2;
+unsigned int animCurrentFrame = 0;
 
 void player_init()
 {
     player.pos = (Vector3){ 0.0, 0.0, 0.0 };
     player.pos_prior = (Vector3){ 0.0, 0.0, 0.0 };
+    player.target = (Vector3){ 0.0, 0.0, 1.0 };
+
     player.run_speed = 4.0; //
     player.jump_speed = 4.0; // m/s
     player.height = 1.6;
@@ -34,14 +42,23 @@ void player_init()
     girl = LoadModel("models/female1.obj");
     Texture2D texture = LoadTexture("models/female1.png");
     girl.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+
+    greenman = LoadModel("models/greenman.glb");
+    modelAnimations = LoadModelAnimations("models/greenman.glb", &animsCount);
 }
 
 void player_update(float dt)
 {
     // update velocity
 
+#if 0
+    Vector3 fwd = Vector3Normalize(Vector3Subtract(player.target, player.pos));
+    Vector3 up = (Vector3){ 0.0, 1.0, 0.0 };
+    Vector3 right = Vector3Normalize(Vector3CrossProduct(fwd, up));
+#else
     Vector3 fwd = GetCameraForward(&camera);
     Vector3 right = GetCameraRight(&camera);
+#endif
 
     fwd.y = 0.0;
     right.y = 0.0;
@@ -94,6 +111,10 @@ void player_update(float dt)
 
     player.facing_angle -= RAD2DEG*rot.x;
 
+    Vector3 targetPosition = Vector3Subtract(player.target, player.pos);
+    targetPosition = Vector3RotateByAxisAngle(targetPosition, (Vector3){0.0,1.0,0.0}, -rot.x);
+    player.target = Vector3Add(player.pos, targetPosition);
+
     // update camera
 
     // rotation
@@ -104,17 +125,27 @@ void player_update(float dt)
     // position
     Vector3 delta_pos = Vector3Subtract(player.pos, player.pos_prior);
     camera.position = Vector3Add(camera.position, delta_pos);
+    player.target = Vector3Add(player.target, delta_pos);
     camera.target = Vector3Add(camera.target, delta_pos);
 
+    ModelAnimation anim = modelAnimations[animIndex];
+    animCurrentFrame = (animCurrentFrame + 1)%anim.frameCount;
+    UpdateModelAnimation(greenman, anim, animCurrentFrame);
 }
 
 void player_draw()
 {
-    DrawModelEx(girl, player.pos, (Vector3) {0.0,1.0,0.0}, player.facing_angle, (Vector3){1.0,1.0,1.0}, WHITE);
+
+    ModelAnimation anim = modelAnimations[animIndex];
+    UpdateModelAnimation(greenman, anim, animCurrentFrame);
+    DrawModelEx(greenman, player.pos, (Vector3) {0.0,1.0,0.0}, player.facing_angle, (Vector3){1.0,1.0,1.0}, WHITE);
+
+    DrawModelEx(girl, (Vector3) {2.0,0.0,2.0}, (Vector3) {0.0,1.0,0.0}, 0.0, (Vector3){1.0,1.0,1.0}, WHITE);
 
     if(g_debug)
     {
         DrawSphere(camera.target, 0.2, PINK);
+        DrawSphereWires(player.target, 0.2, 10, 10, ORANGE);
     }
 }
 
