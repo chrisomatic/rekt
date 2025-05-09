@@ -22,22 +22,17 @@ unsigned int animCurrentFrame = 0;
 void player_init()
 {
     player.pos = (Vector3){ 0.0, 0.0, 0.0 };
-    player.pos_prior = (Vector3){ 0.0, 0.0, 0.0 };
     player.target = (Vector3){ 0.0, 0.0, 1.0 };
 
-    player.run_speed = 4.0; //
+    player.viewpoint = VIEWPOINT_FIRST;
+    player.run_speed = 5.0; // m/s
     player.jump_speed = 4.0; // m/s
-    player.height = 1.6;
-    player.facing_angle = 0.0;
+    player.height = 1.0;
+    player.angle_theta = 0.0;
 
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 60.0f;
     camera.projection = CAMERA_PERSPECTIVE;
-
-    camera.position = player.pos;
-    camera.position.y += (player.height*0.90); // eye level
-    camera.target = camera.position; 
-    camera.target.z += 1.0;
 
     girl = LoadModel("models/female1.obj");
     Texture2D texture = LoadTexture("models/female1.png");
@@ -51,14 +46,9 @@ void player_update(float dt)
 {
     // update velocity
 
-#if 0
     Vector3 fwd = Vector3Normalize(Vector3Subtract(player.target, player.pos));
     Vector3 up = (Vector3){ 0.0, 1.0, 0.0 };
     Vector3 right = Vector3Normalize(Vector3CrossProduct(fwd, up));
-#else
-    Vector3 fwd = GetCameraForward(&camera);
-    Vector3 right = GetCameraRight(&camera);
-#endif
 
     fwd.y = 0.0;
     right.y = 0.0;
@@ -71,6 +61,13 @@ void player_update(float dt)
     if(IsKeyDown(KEY_D)) { player.vel = Vector3Add(player.vel,right); }
     if(IsKeyDown(KEY_A)) { player.vel = Vector3Subtract(player.vel, right); }
 
+    if(player.vel.x != 0.0 && player.vel.z != 0.0)
+    {
+        // handle diagonal movement
+        player.vel.x *= 0.7071;
+        player.vel.z *= 0.7071;
+    }
+
     player.vel.x *= player.run_speed;
     player.vel.z *= player.run_speed;
 
@@ -80,13 +77,16 @@ void player_update(float dt)
     }
 
     if(IsKeyPressed(KEY_F2)) { g_debug = !g_debug; }
+    if(IsKeyPressed(KEY_TAB)) {
+        if(player.viewpoint == VIEWPOINT_FIRST) player.viewpoint = VIEWPOINT_THIRD;
+        else player.viewpoint = VIEWPOINT_FIRST;
+    }
 
     // apply gravity
     if(player.pos.y > EPSILON)
         player.vel.y -= (GRAVITY*dt);
     
     // update position
-    player.pos_prior = player.pos;
     Vector3 pos_delta = Vector3Scale(player.vel, dt);
     player.pos = Vector3Add(player.pos, pos_delta);
 
@@ -109,37 +109,55 @@ void player_update(float dt)
         rot.y += mouse_delta.y*MOUSE_MOVE_SENSITIVITY;
     }
 
-    player.facing_angle -= RAD2DEG*rot.x;
+    player.angle_theta -= RAD2DEG*rot.x;
+    player.angle_theta = fmod(player.angle_theta,360.0f);
 
-    Vector3 targetPosition = Vector3Subtract(player.target, player.pos);
-    targetPosition = Vector3RotateByAxisAngle(targetPosition, (Vector3){0.0,1.0,0.0}, -rot.x);
-    player.target = Vector3Add(player.pos, targetPosition);
+    player.angle_omega -= RAD2DEG*rot.y;
+    if(player.angle_omega < -55.0) player.angle_omega = -55.0;
+    else if(player.angle_omega > +55.0) player.angle_omega = +55.0;
+
+    Vector3 target = {0.0,0.0,1.0};
+    target = Vector3RotateByAxisAngle(target, up, DEG2RAD*player.angle_theta);
+    target = Vector3RotateByAxisAngle(target, right, DEG2RAD*player.angle_omega);
+    target = Vector3Add(player.pos, target);
+    player.target = target;
 
     // update camera
 
-    // rotation
-    CameraYaw(&camera, -rot.x, false);
-    CameraPitch(&camera, -rot.y, true, false, false);
-    CameraRoll(&camera, rot.z);
+    if(player.viewpoint == VIEWPOINT_FIRST)
+    {
+        Vector3 offset = (Vector3) {0.0, player.height * 0.80, 0.0 };
+        camera.position = Vector3Add(player.pos, offset);
+        camera.target   = Vector3Add(player.target, offset);
+    }
+    else
+    {
+        Vector3 offset = (Vector3) {0.0, player.height * 0.80 + 1.0, 0.0 };
+        camera.position = Vector3Add(player.pos, offset);
+        camera.target   = Vector3Add(player.target, offset);
 
-    // position
-    Vector3 delta_pos = Vector3Subtract(player.pos, player.pos_prior);
-    camera.position = Vector3Add(camera.position, delta_pos);
-    player.target = Vector3Add(player.target, delta_pos);
-    camera.target = Vector3Add(camera.target, delta_pos);
+        camera.position = Vector3Subtract(camera.position, Vector3Scale(fwd,3.0));
+    }
+
+    // update animation frame
 
     ModelAnimation anim = modelAnimations[animIndex];
-    animCurrentFrame = (animCurrentFrame + 1)%anim.frameCount;
-    UpdateModelAnimation(greenman, anim, animCurrentFrame);
+
+    if(Vector3Length(player.vel) > 0.0)
+    {
+        animCurrentFrame = (animCurrentFrame + 1)%anim.frameCount;
+        UpdateModelAnimation(greenman, anim, animCurrentFrame);
+    }
+    else
+    {
+        animCurrentFrame = 0;
+        UpdateModelAnimation(greenman, anim, animCurrentFrame);
+    }
 }
 
 void player_draw()
 {
-
-    ModelAnimation anim = modelAnimations[animIndex];
-    UpdateModelAnimation(greenman, anim, animCurrentFrame);
-    DrawModelEx(greenman, player.pos, (Vector3) {0.0,1.0,0.0}, player.facing_angle, (Vector3){1.0,1.0,1.0}, WHITE);
-
+    DrawModelEx(greenman, player.pos, (Vector3) {0.0,1.0,0.0}, player.angle_theta, (Vector3){0.5,0.5,0.5}, WHITE);
     DrawModelEx(girl, (Vector3) {2.0,0.0,2.0}, (Vector3) {0.0,1.0,0.0}, 0.0, (Vector3){1.0,1.0,1.0}, WHITE);
 
     if(g_debug)

@@ -43,7 +43,7 @@ void init()
     const int screenWidth = 1200;
     const int screenHeight = 800;
 
-    unsigned int flags = (FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
+    unsigned int flags = (FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     SetConfigFlags(flags);
 
     InitWindow(screenWidth, screenHeight, "Rekt");
@@ -104,18 +104,16 @@ void draw()
         EndMode3D();
 
         // Draw info boxes
-        if(g_debug)
-        {
-            DrawRectangle(600, 5, 195, 100, Fade(SKYBLUE, 0.5f));
-            DrawRectangleLines(600, 5, 195, 100, BLUE);
+        DrawRectangle(5, 5, 400, 200, Fade(DARKBLUE, 0.7f));
 
-            DrawText("Camera status:", 610, 15, 10, BLACK);
-            DrawText(TextFormat("- Position: (%06.3f, %06.3f, %06.3f)", camera.position.x, camera.position.y, camera.position.z), 610, 30, 10, BLACK);
-            DrawText(TextFormat("- Target: (%06.3f, %06.3f, %06.3f)", camera.target.x, camera.target.y, camera.target.z), 610, 45, 10, BLACK);
-            DrawText(TextFormat("- Up: (%06.3f, %06.3f, %06.3f)", camera.up.x, camera.up.y, camera.up.z), 610, 60, 10, BLACK);
-            DrawText(TextFormat("- Player: (%06.3f, %06.3f, %06.3f)", player.pos.x, player.pos.y, player.pos.z), 610, 75, 10, BLACK);
-            DrawText(TextFormat("- Vel: (%06.3f, %06.3f, %06.3f)", player.vel.x, player.vel.y, player.vel.z), 610, 90, 10, BLACK);
-        }
+        Color tcolor = WHITE;
+        DrawText("Player status:", 10, 15, 20, tcolor);
+        DrawText(TextFormat("- Position: (%06.3f, %06.3f, %06.3f)", player.pos.x, player.pos.y, player.pos.z), 10, 40, 20, tcolor);
+        DrawText(TextFormat("- Vel:      (%06.3f, %06.3f, %06.3f)", player.vel.x, player.vel.y, player.vel.z), 10, 60, 20, tcolor);
+        DrawText(TextFormat("- Angles:   (%06.3f, %06.3f)", player.angle_theta, player.angle_omega), 10, 80, 20, tcolor);
+        DrawText(TextFormat("W,A,S,D - Move", player.angle_theta, player.angle_omega), 10, 120, 20, tcolor);
+        DrawText(TextFormat("Space   - Jump", player.angle_theta, player.angle_omega), 10, 140, 20, tcolor);
+        DrawText(TextFormat("Tab     - Toggle viewpoint", player.angle_theta, player.angle_omega), 10, 160, 20, tcolor);
 
     EndDrawing();
 }
