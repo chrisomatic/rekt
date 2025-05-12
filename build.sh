@@ -5,5 +5,6 @@ mkdir bin
 
 gcc main.c \
     player.c \
+    terrain.c \
     -lraylib -lGL -lm \
     -o bin/rekt

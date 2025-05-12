@@ -4,15 +4,11 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "player.h"
+#include "terrain.h"
 
 //------------------------------------------------------------------------------------
 // Program main entry point
 //------------------------------------------------------------------------------------
-
-#define MAX_COLUMNS 20
-float heights[MAX_COLUMNS] = { 0 };
-Vector3 positions[MAX_COLUMNS] = { 0 };
-Color colors[MAX_COLUMNS] = { 0 };
 
 bool g_debug = false;
 
@@ -54,15 +50,8 @@ void init()
     float rate = GetMonitorRefreshRate(GetCurrentMonitor());
     SetTargetFPS(rate);
 
-    // Generates some random columns
-    for(int i = 0; i < MAX_COLUMNS; i++)
-    {
-        heights[i] = (float)GetRandomValue(1, 12);
-        positions[i] = (Vector3){ (float)GetRandomValue(-15, 15), heights[i]/2.0f, (float)GetRandomValue(-15, 15) };
-        colors[i] = (Color){ GetRandomValue(20, 255), GetRandomValue(10, 55), 30, 255 };
-    }
-
     player_init();
+    terrain_init();
 
 }
 
@@ -87,17 +76,7 @@ void draw()
 
         BeginMode3D(camera);
 
-            DrawCube((Vector3){ -16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, BLUE);     // Draw a blue wall
-            DrawCube((Vector3){ 16.0f, 2.5f, 0.0f }, 1.0f, 5.0f, 32.0f, LIME);      // Draw a green wall
-            DrawCube((Vector3){ 0.0f, 2.5f, 16.0f }, 32.0f, 5.0f, 1.0f, GOLD);      // Draw a yellow wall
-
-            // Draw some cubes around
-            for (int i = 0; i < MAX_COLUMNS; i++)
-            {
-                if(g_debug) DrawCubeWires(positions[i], 2.0f, heights[i], 2.0f, MAROON);
-                else        DrawCube(positions[i], 2.0f, heights[i], 2.0f, colors[i]);
-            }
-
+            terrain_draw();
             player_draw();
             DrawGrid(32, 1.0f);
 

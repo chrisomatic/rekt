@@ -1,9 +1,7 @@
-#include <stdio.h>
-#include <stdbool.h>
+#include "common.h"
 #include "raylib.h"
 #include "raymath.h"
 #include "rcamera.h"
-#include "common.h"
 #include "player.h"
 
 #define CAMERA_ROTATION_SPEED   0.03
@@ -96,6 +94,13 @@ void player_update(float dt)
         player.vel.y = 0.0;
     }
 
+#if 0
+    float terrain_x = terrain.pos.x - x;
+    float terrain_z = terrain.pos.z - z;
+
+    ground->height = get_y_value_on_plane(terrain_x,terrain_z,&ground->a,&ground->b,&ground->c); // @NEG
+#endif
+
     // update rotation
 
     Vector3 rot = Vector3Zero();
@@ -162,8 +167,8 @@ void player_draw()
 
     if(g_debug)
     {
-        DrawSphere(camera.target, 0.2, PINK);
-        DrawSphereWires(player.target, 0.2, 10, 10, ORANGE);
+        DrawSphereWires(camera.target, 0.1, 10, 10,  PINK);
+        DrawSphereWires(player.target, 0.1, 10, 10, ORANGE);
     }
 }
 
