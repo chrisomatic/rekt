@@ -4,6 +4,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "player.h"
+#include "sky.h"
 #include "terrain.h"
 
 //------------------------------------------------------------------------------------
@@ -52,7 +53,7 @@ void init()
 
     player_init();
     terrain_init();
-
+    sky_init();
 }
 
 void update()
@@ -76,6 +77,7 @@ void draw()
 
         BeginMode3D(camera);
 
+            sky_draw();
             terrain_draw();
             player_draw();
             DrawGrid(32, 1.0f);
@@ -93,6 +95,7 @@ void draw()
         DrawText(TextFormat("W,A,S,D - Move", player.angle_theta, player.angle_omega), 10, 120, 20, tcolor);
         DrawText(TextFormat("Space   - Jump", player.angle_theta, player.angle_omega), 10, 140, 20, tcolor);
         DrawText(TextFormat("Tab     - Toggle viewpoint", player.angle_theta, player.angle_omega), 10, 160, 20, tcolor);
+        DrawText(TextFormat("F2      - Toggle debug mode", player.angle_theta, player.angle_omega), 10, 180, 20, tcolor);
 
     EndDrawing();
 }

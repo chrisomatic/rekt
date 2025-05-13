@@ -1,119 +1,103 @@
 #include "common.h"
 #include "raylib.h"
 #include "raymath.h"
-#include "player.h"
 #include "terrain.h"
 
-static Model model;
-static Vector3 position;
-static Vector3 scale;
+#define TERRAIN_SCALE_PLANAR 1.0
+#define TERRAIN_SCALE_HEIGHT 12.0
+
+typedef struct
+{
+    Model model;
+    Vector3 pos;
+    Vector3 scale;
+    Vector2 size; // w,h
+} Terrain;
+
+static Terrain terrain;
 
 void terrain_init()
 {
     Image image = LoadImage("textures/heightmap.png");
-    Texture2D texture = LoadTextureFromImage(image);
+    LoadTextureFromImage(image);
     Texture2D grass = LoadTexture("textures/grass.png");
 
-    scale = (Vector3){ 256.0, 10.0, 256.0 };
-    Mesh mesh = GenMeshHeightmap(image, scale);
-    model = LoadModelFromMesh(mesh);
+    terrain.size = (Vector2) {image.width - 1.0, image.height - 1.0};
+    terrain.scale = (Vector3){ TERRAIN_SCALE_PLANAR*(terrain.size.x), TERRAIN_SCALE_HEIGHT, TERRAIN_SCALE_PLANAR*(terrain.size.y) };
+    //terrain.scale = (Vector3){ 1.0, 0.2, 1.0 };
+    Mesh mesh = GenMeshHeightmap(image, terrain.scale);
+    terrain.model = LoadModelFromMesh(mesh);
+    terrain.pos = (Vector3) {-0.5*terrain.scale.x, 0.0, -0.5*terrain.scale.z}; // offset terrain mesh so center is at (0,0,0)
 
-    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = grass;
+    terrain.model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = grass;
     UnloadImage(image);
 }
 
 void terrain_draw()
 {
-    position = Vector3Scale(scale, -0.5);
-    //DrawModel(model, position, 1.0f, WHITE);
-    DrawModelWires(model, position, 1.0, GREEN);
-
     if(g_debug)
     {
-
-        int x = floor(player.pos.x) + 128;
-        int z = floor(player.pos.z) + 128;
-
-        int p1 = 18*(256*z + x);
-        int p2 = 18*(256*z + x)+3;
-        int p3 = 18*(256*z + x)+6;
-
-        Mesh* m = &model.meshes[0];
-        Vector3 a = Vector3Add(position, (Vector3){m->vertices[p1],m->vertices[p1+1],m->vertices[p1+2]});
-        Vector3 b = Vector3Add(position, (Vector3){m->vertices[p2],m->vertices[p2+1],m->vertices[p2+2]});
-        Vector3 c = Vector3Add(position, (Vector3){m->vertices[p3],m->vertices[p3+1],m->vertices[p3+2]});
-
-        printf("abc: [%f %f %f] [%f %f %f] [%f %f %f]\n", a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
-
-        DrawSphere(a, 0.03, RED);
-        DrawSphere(b, 0.03, GREEN);
-        DrawSphere(c, 0.03, BLUE);
-    }
-}
-
-#if 0
-void terrain_get_info(float x, float z, GroundInfo* ground)
-{
-
-    float terrain_x = terrain.pos.x - x;
-    float terrain_z = terrain.pos.z - z;
-
-    float grid_square_size = TERRAIN_PLANAR_SCALE;
-
-    memset(ground,0,sizeof(GroundInfo));
-
-    int grid_x = (int)floor(terrain_x / grid_square_size);
-    if(grid_x < 0 || grid_x >= terrain.w-1)
-        return;
-
-    int grid_z = (int)floor(terrain_z / grid_square_size);
-    if(grid_z < 0 || grid_z >= terrain.l-1)
-        return;
-
-    /*
-    printf("-----------------------------\n");
-    printf("grid_x: %d, grid_z: %d\n",grid_x, grid_z);
-    printf("-----------------------------\n");
-    */
-
-    int index = grid_z*(terrain.l-1)+grid_x;
-
-    float x_coord = fmod(terrain_x,grid_square_size)/grid_square_size;
-    float z_coord = fmod(terrain_z,grid_square_size)/grid_square_size;
-
-    int i0,i1,i2;
-
-    if (x_coord <= (1.0f-z_coord))
-    {
-        i0 = terrain.indices[6*index+0];
-        i1 = terrain.indices[6*index+1];
-        i2 = terrain.indices[6*index+2];
+        DrawModelWires(terrain.model, terrain.pos, 1.0, GREEN);
     }
     else
     {
-        i0 = terrain.indices[6*index+3];
-        i1 = terrain.indices[6*index+4];
-        i2 = terrain.indices[6*index+5];
+        DrawModel(terrain.model, terrain.pos, 1.0f, WHITE);
+    }
+}
+
+float terrain_get_ground(float x, float z, Ground* ground)
+{
+    float grid_square_size = 1.0; //TERRAIN_SCALE_PLANAR;
+    float dx = x - floor(x)*grid_square_size;
+    float dz = z - floor(z)*grid_square_size;
+
+    int _x = floor(x) + (terrain.size.x / 2.0);
+    int _z = floor(z) + (terrain.size.y / 2.0);
+    int p = (int)(18*(terrain.size.y*_z + _x));
+
+    Mesh* m = &terrain.model.meshes[0];
+    if(ABS(x) >= terrain.scale.x / 2.0 || ABS(z) >= terrain.scale.z / 2.0)
+    {
+        ground->height = 0.0;
+        return 0.0;
     }
 
-    ground->a.x = terrain.vertices[i0].position.x;
-    ground->a.y = terrain.vertices[i0].position.y;
-    ground->a.z = terrain.vertices[i0].position.z;
+    //printf("x: %d, z: %d\n", _x, _z);
 
-    ground->b.x = terrain.vertices[i1].position.x;
-    ground->b.y = terrain.vertices[i1].position.y;
-    ground->b.z = terrain.vertices[i1].position.z;
+    if (dx <= (1.0-dz))
+    {
+        ground->a = Vector3Add(terrain.pos, (Vector3){m->vertices[p],m->vertices[p+1],m->vertices[p+2]});
+        ground->b = Vector3Add(terrain.pos, (Vector3){m->vertices[p+3],m->vertices[p+4],m->vertices[p+5]});
+        ground->c = Vector3Add(terrain.pos, (Vector3){m->vertices[p+6],m->vertices[p+7],m->vertices[p+8]});
+    }
+    else
+    {
+        ground->a = Vector3Add(terrain.pos, (Vector3){m->vertices[p+9],m->vertices[p+10],m->vertices[p+11]});
+        ground->b = Vector3Add(terrain.pos, (Vector3){m->vertices[p+12],m->vertices[p+13],m->vertices[p+14]});
+        ground->c = Vector3Add(terrain.pos, (Vector3){m->vertices[p+15],m->vertices[p+16],m->vertices[p+17]});
+    }
 
-    ground->c.x = terrain.vertices[i2].position.x;
-    ground->c.y = terrain.vertices[i2].position.y;
-    ground->c.z = terrain.vertices[i2].position.z;
+    // plane equ: rx+sy+tz=k
+    Vector3 v1 = (Vector3){ground->a.x - ground->b.x, ground->a.y - ground->b.y, ground->a.z - ground->b.z};
+    Vector3 v2 = (Vector3){ground->a.x - ground->c.x, ground->a.y - ground->c.y, ground->a.z - ground->c.z};
+    Vector3 n = Vector3CrossProduct(v1,v2);
 
-    ground->height = get_y_value_on_plane(terrain_x,terrain_z,&ground->a,&ground->b,&ground->c); // @NEG
-    ground->height *= -1; // @NEG
+    // compute k
+    float k = Vector3DotProduct(n,ground->a);
 
+    float rx = n.x * x;
+    float tz = n.z * z;
+    float s  = n.y;
+
+    float y = (s == 0.0) ? 0.0 : (k - rx - tz) / s;
+    ground->height = y;
+
+#if 0
     normal(ground->a, ground->b, ground->c,&ground->normal);
     //ground->normal.x = terrain.vertices[index].normal.x;
     //ground->normal.y = terrain.vertices[index].normal.y;
     //ground->normal.z = terrain.vertices[index].normal.z;
-}
 #endif
+
+    return y;
+}

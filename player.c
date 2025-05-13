@@ -51,26 +51,40 @@ void player_update(float dt)
     fwd.y = 0.0;
     right.y = 0.0;
 
-    player.vel.x = 0.0;
-    player.vel.z = 0.0;
-
-    if(IsKeyDown(KEY_W)) { player.vel = Vector3Add(player.vel,fwd); }
-    if(IsKeyDown(KEY_S)) { player.vel = Vector3Subtract(player.vel,fwd); } 
-    if(IsKeyDown(KEY_D)) { player.vel = Vector3Add(player.vel,right); }
-    if(IsKeyDown(KEY_A)) { player.vel = Vector3Subtract(player.vel, right); }
-
-    if(player.vel.x != 0.0 && player.vel.z != 0.0)
+    float ground_y = terrain_get_ground(player.pos.x, player.pos.z, &player.ground);
+    bool on_ground = player.pos.y <= ground_y + GROUND_EPSILON;
+    
+    if(on_ground)
     {
-        // handle diagonal movement
-        player.vel.x *= 0.7071;
-        player.vel.z *= 0.7071;
+        player.vel.x = 0.0;
+        player.vel.z = 0.0;
+        player.running = false;
+
+        if(IsKeyDown(KEY_LEFT_SHIFT)) { player.running = true; };
+        if(IsKeyDown(KEY_W)) { player.vel = Vector3Add(player.vel,fwd); }
+        if(IsKeyDown(KEY_S)) { player.vel = Vector3Subtract(player.vel,fwd); } 
+        if(IsKeyDown(KEY_D)) { player.vel = Vector3Add(player.vel,right); }
+        if(IsKeyDown(KEY_A)) { player.vel = Vector3Subtract(player.vel, right); }
+
+        if(player.vel.x != 0.0 && player.vel.z != 0.0)
+        {
+            // handle diagonal movement
+            player.vel.x *= 0.7071;
+            player.vel.z *= 0.7071;
+        }
+
+        player.vel.x *= player.run_speed;
+        player.vel.z *= player.run_speed;
+
+        if(player.running)
+        {
+            player.vel.x *= 5.0;
+            player.vel.z *= 5.0;
+        }
     }
 
-    player.vel.x *= player.run_speed;
-    player.vel.z *= player.run_speed;
-
     if(IsKeyDown(KEY_SPACE)) { 
-        if(player.pos.y <= EPSILON)
+        if(on_ground)
             player.vel.y = player.jump_speed;
     }
 
@@ -81,25 +95,18 @@ void player_update(float dt)
     }
 
     // apply gravity
-    if(player.pos.y > EPSILON)
+    if(player.pos.y > ground_y + EPSILON)
         player.vel.y -= (GRAVITY*dt);
     
     // update position
     Vector3 pos_delta = Vector3Scale(player.vel, dt);
     player.pos = Vector3Add(player.pos, pos_delta);
 
-    if(player.pos.y < 0)
+    if(player.pos.y < ground_y)
     {
-        player.pos.y = 0.0;
+        player.pos.y = ground_y;
         player.vel.y = 0.0;
     }
-
-#if 0
-    float terrain_x = terrain.pos.x - x;
-    float terrain_z = terrain.pos.z - z;
-
-    ground->height = get_y_value_on_plane(terrain_x,terrain_z,&ground->a,&ground->b,&ground->c); // @NEG
-#endif
 
     // update rotation
 
@@ -163,12 +170,16 @@ void player_update(float dt)
 void player_draw()
 {
     DrawModelEx(greenman, player.pos, (Vector3) {0.0,1.0,0.0}, player.angle_theta, (Vector3){0.5,0.5,0.5}, WHITE);
-    DrawModelEx(girl, (Vector3) {2.0,0.0,2.0}, (Vector3) {0.0,1.0,0.0}, 0.0, (Vector3){1.0,1.0,1.0}, WHITE);
+    DrawModelEx(girl, (Vector3) {0.0,0.0,0.0}, (Vector3) {0.0,1.0,0.0}, 0.0, (Vector3){1.0,1.0,1.0}, WHITE);
 
     if(g_debug)
     {
         DrawSphereWires(camera.target, 0.1, 10, 10,  PINK);
         DrawSphereWires(player.target, 0.1, 10, 10, ORANGE);
+
+        DrawSphere(player.ground.a, 0.03, RED);
+        DrawSphere(player.ground.b, 0.03, GREEN);
+        DrawSphere(player.ground.c, 0.03, BLUE);
     }
 }
 

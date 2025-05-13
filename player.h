@@ -1,5 +1,7 @@
 #pragma once
 
+#include "terrain.h"
+
 typedef enum
 {
     VIEWPOINT_FIRST,
@@ -17,6 +19,8 @@ typedef struct
     float angle_theta; // horizontal. degrees
     float angle_omega; // vertical. degrees
     ViewPoint viewpoint;
+    Ground ground;
+    bool running;
 } Player;
 
 extern Player player;
