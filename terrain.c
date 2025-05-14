@@ -3,8 +3,8 @@
 #include "raymath.h"
 #include "terrain.h"
 
-#define TERRAIN_SCALE_PLANAR 1.0
-#define TERRAIN_SCALE_HEIGHT 10.0
+float terrain_scale_planar = 2.0;
+float terrain_scale_height = 10.0;
 
 typedef struct
 {
@@ -15,21 +15,40 @@ typedef struct
 } Terrain;
 
 static Terrain terrain;
+static Texture2D grass;
+static Image heightmap_image;
 
 void terrain_init()
 {
-    Image image = LoadImage("textures/heightmap.png");
-    LoadTextureFromImage(image);
-    Texture2D grass = LoadTexture("textures/grass.png");
+    heightmap_image = LoadImage("textures/heightmap.png");
+    LoadTextureFromImage(heightmap_image);
 
-    terrain.size = (Vector2) {image.width - 1.0, image.height - 1.0};
-    terrain.scale = (Vector3){ TERRAIN_SCALE_PLANAR*(terrain.size.x), TERRAIN_SCALE_HEIGHT, TERRAIN_SCALE_PLANAR*(terrain.size.y) };
-    Mesh mesh = GenMeshHeightmap(image, terrain.scale);
-    terrain.model = LoadModelFromMesh(mesh);
+    grass = LoadTexture("textures/grass.png");
+
+    terrain.size = (Vector2) {heightmap_image.width - 1.0, heightmap_image.height - 1.0};
+    terrain.scale = (Vector3){ terrain_scale_planar*(terrain.size.x), terrain_scale_height, terrain_scale_planar*(terrain.size.y) };
     terrain.pos = (Vector3) {-0.5*terrain.scale.x, 0.0, -0.5*terrain.scale.z}; // offset terrain mesh so center is at (0,0,0)
 
+    Mesh mesh = GenMeshHeightmap(heightmap_image, terrain.scale);
+    terrain.model = LoadModelFromMesh(mesh);
+
     terrain.model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = grass;
-    UnloadImage(image);
+}
+
+void terrain_update()
+{
+    Vector3 scale_prior = terrain.scale;
+
+    terrain.scale = (Vector3){ terrain_scale_planar*(terrain.size.x), terrain_scale_height, terrain_scale_planar*(terrain.size.y) };
+    terrain.pos = (Vector3) {-0.5*terrain.scale.x, 0.0, -0.5*terrain.scale.z};
+
+    if(Vector3Equals(terrain.scale, scale_prior) == 0)
+    {
+        Mesh mesh = GenMeshHeightmap(heightmap_image, terrain.scale);
+        UnloadModel(terrain.model);
+        terrain.model = LoadModelFromMesh(mesh);
+        terrain.model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = grass;
+    }
 }
 
 void terrain_draw()
@@ -54,14 +73,14 @@ float terrain_get_ground(float x, float z, Ground* ground)
     }
 
     // find starting index in terrain mesh vertices list based on (x,z)
-    float _x = floor(x/TERRAIN_SCALE_PLANAR) + (terrain.size.x / 2.0);
-    float _z = floor(z/TERRAIN_SCALE_PLANAR) + (terrain.size.y / 2.0);
+    float _x = floor(x/terrain_scale_planar) + (terrain.size.x / 2.0);
+    float _z = floor(z/terrain_scale_planar) + (terrain.size.y / 2.0);
     int p = (int)(18*(terrain.size.y*_z + _x)); // 18 floats per quad (6 vertices * 3 axis)
 
     Mesh* m = &terrain.model.meshes[0];
 
-    float dx = (x/TERRAIN_SCALE_PLANAR) - floor(x/TERRAIN_SCALE_PLANAR);
-    float dz = (z/TERRAIN_SCALE_PLANAR) - floor(z/TERRAIN_SCALE_PLANAR);
+    float dx = (x/terrain_scale_planar) - floor(x/terrain_scale_planar);
+    float dz = (z/terrain_scale_planar) - floor(z/terrain_scale_planar);
 
     // find the specific terrain triangle (points a,b,c) where (x,z) is within
     if (dx <= (1.0-dz))
