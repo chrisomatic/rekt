@@ -1,7 +1,6 @@
 #include "common.h"
 #include "raylib.h"
 #include "raymath.h"
-#include "rcamera.h"
 #include "player.h"
 
 #define CAMERA_ROTATION_SPEED   0.03
@@ -42,6 +41,9 @@ void player_init()
 
 void player_update(float dt)
 {
+    if(g_editor)
+        return;
+
     // update velocity
 
     Vector3 fwd = Vector3Normalize(Vector3Subtract(player.target, player.pos));
@@ -88,8 +90,8 @@ void player_update(float dt)
             player.vel.y = player.jump_speed;
     }
 
-    if(IsKeyPressed(KEY_F2)) { g_debug = !g_debug; }
-    if(IsKeyPressed(KEY_TAB)) {
+    if(IsKeyPressed(KEY_TAB)) { g_debug = !g_debug; }
+    if(IsKeyPressed(KEY_P)) {
         if(player.viewpoint == VIEWPOINT_FIRST) player.viewpoint = VIEWPOINT_THIRD;
         else player.viewpoint = VIEWPOINT_FIRST;
     }
@@ -177,9 +179,11 @@ void player_draw()
         DrawSphereWires(camera.target, 0.1, 10, 10,  PINK);
         DrawSphereWires(player.target, 0.1, 10, 10, ORANGE);
 
-        DrawSphere(player.ground.a, 0.03, RED);
-        DrawSphere(player.ground.b, 0.03, GREEN);
-        DrawSphere(player.ground.c, 0.03, BLUE);
+        Ground ground = {0};
+        terrain_get_ground(player.pos.x, player.pos.z, &ground);
+        DrawSphere(ground.a, 0.06, RED);
+        DrawSphere(ground.b, 0.06, GREEN);
+        DrawSphere(ground.c, 0.06, BLUE);
     }
 }
 

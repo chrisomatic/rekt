@@ -5,3 +5,4 @@
 #define GRAVITY 9.8f
 
 extern bool g_debug;
+extern bool g_editor;

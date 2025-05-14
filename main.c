@@ -3,15 +3,19 @@
 #include "common.h"
 #include "raylib.h"
 #include "raymath.h"
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
 #include "player.h"
 #include "sky.h"
 #include "terrain.h"
+
 
 //------------------------------------------------------------------------------------
 // Program main entry point
 //------------------------------------------------------------------------------------
 
-bool g_debug = false;
+bool g_editor = false;
+bool g_debug = true;
 
 void init();
 void update();
@@ -64,6 +68,12 @@ void update()
         else DisableCursor();
     }
 
+    if(IsKeyPressed(KEY_F2)) {
+        g_editor = !g_editor;
+        if(g_editor) EnableCursor();
+        else DisableCursor();
+    }
+
     float dt = GetFrameTime();
 
     player_update(dt);
@@ -84,6 +94,19 @@ void draw()
 
         EndMode3D();
 
+        if(g_editor)
+        {
+            static bool showMessageBox = false;
+            if (GuiButton((Rectangle){ 24, 24, 120, 30 }, "#191#Show Message")) showMessageBox = true;
+            if (showMessageBox)
+            {
+                int result = GuiMessageBox((Rectangle){ 85, 70, 250, 100 },
+                    "#191#Message Box", "Hi! This is a message!", "Nice;Cool");
+
+                if (result >= 0) showMessageBox = false;
+            }
+        }
+        /*
         // Draw info boxes
         DrawRectangle(5, 5, 400, 200, Fade(DARKBLUE, 0.7f));
 
@@ -96,6 +119,7 @@ void draw()
         DrawText(TextFormat("Space   - Jump", player.angle_theta, player.angle_omega), 10, 140, 20, tcolor);
         DrawText(TextFormat("Tab     - Toggle viewpoint", player.angle_theta, player.angle_omega), 10, 160, 20, tcolor);
         DrawText(TextFormat("F2      - Toggle debug mode", player.angle_theta, player.angle_omega), 10, 180, 20, tcolor);
+        */
 
     EndDrawing();
 }
