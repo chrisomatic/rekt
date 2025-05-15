@@ -26,5 +26,6 @@ extern Shader lights_shader;
 
 void lights_init();
 void lights_update();
+void lights_draw();
 Light CreateLight(int type, Vector3 position, Vector3 target, Color color, Shader shader);
 void UpdateLightValues(Shader shader, Light light);

@@ -59,6 +59,7 @@ void init()
 
     GuiLoadStyleCyber();
 
+    lights_init();
     player_init();
     terrain_init();
     sky_init();
@@ -80,7 +81,6 @@ void update()
 
     float dt = GetFrameTime();
 
-    lights_update();
     terrain_update();
     player_update(dt);
 }
@@ -94,10 +94,11 @@ void draw()
         BeginMode3D(camera);
 
             sky_draw();
-            BeginShaderMode(lights_shader);
-                terrain_draw();
+            terrain_draw();
+            //BeginShaderMode(lights_shader);
                 player_draw();
-            EndShaderMode();
+            //EndShaderMode();
+            lights_draw();
             DrawGrid(32, 1.0f);
 
         EndMode3D();

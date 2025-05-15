@@ -20,10 +20,7 @@ void lights_init()
     SetShaderValue(lights_shader, ambientLoc, (float[4]){ 0.1f, 0.1f, 0.1f, 1.0f }, SHADER_UNIFORM_VEC4);
 
     // Create lights
-    lights[0] = CreateLight(LIGHT_POINT, (Vector3){ -2, 1, -2 }, Vector3Zero(), YELLOW, lights_shader);
-    lights[1] = CreateLight(LIGHT_POINT, (Vector3){ 2, 1, 2 }, Vector3Zero(), RED, lights_shader);
-    lights[2] = CreateLight(LIGHT_POINT, (Vector3){ -2, 1, 2 }, Vector3Zero(), GREEN, lights_shader);
-    lights[3] = CreateLight(LIGHT_POINT, (Vector3){ 2, 1, -2 }, Vector3Zero(), BLUE, lights_shader);
+    lights[0] = CreateLight(LIGHT_DIRECTIONAL, (Vector3){ -50, 50, -50 }, Vector3Zero(), WHITE, lights_shader);
 
     for (int i = 0; i < MAX_LIGHTS; i++)
         UpdateLightValues(lights_shader, lights[i]);
@@ -46,6 +43,7 @@ Light CreateLight(int type, Vector3 position, Vector3 target, Color color, Shade
         light.position = position;
         light.target = target;
         light.color = color;
+        light.attenuation = 0.2;
 
         light.enabledLoc = GetShaderLocation(shader, TextFormat("lights[%i].enabled", lightsCount));
         light.typeLoc = GetShaderLocation(shader, TextFormat("lights[%i].type", lightsCount));
@@ -57,6 +55,18 @@ Light CreateLight(int type, Vector3 position, Vector3 target, Color color, Shade
     }
 
     return light;
+}
+
+void lights_draw()
+{
+    if(g_debug)
+    {
+        for (int i = 0; i < MAX_LIGHTS; i++)
+        {
+            DrawSphere(lights[i].position, 1.00, lights[i].color);
+        }
+    }
+
 }
 
 void UpdateLightValues(Shader shader, Light light)

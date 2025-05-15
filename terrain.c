@@ -1,6 +1,7 @@
 #include "common.h"
 #include "raylib.h"
 #include "raymath.h"
+#include "lights.h"
 #include "terrain.h"
 
 float terrain_scale_planar = 2.0;
@@ -32,6 +33,7 @@ void terrain_init()
     Mesh mesh = GenMeshHeightmap(heightmap_image, terrain.scale);
     terrain.model = LoadModelFromMesh(mesh);
 
+    terrain.model.materials[0].shader = lights_shader;
     terrain.model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = grass;
 }
 
@@ -48,6 +50,7 @@ void terrain_update()
         UnloadModel(terrain.model);
         terrain.model = LoadModelFromMesh(mesh);
         terrain.model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = grass;
+        terrain.model.materials[0].shader = lights_shader;
     }
 }
 

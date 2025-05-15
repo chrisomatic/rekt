@@ -1,6 +1,7 @@
 #include "common.h"
 #include "raylib.h"
 #include "raymath.h"
+#include "lights.h"
 #include "player.h"
 
 #define CAMERA_ROTATION_SPEED   0.03
@@ -34,9 +35,11 @@ void player_init()
     girl = LoadModel("models/female1.obj");
     Texture2D texture = LoadTexture("models/female1.png");
     girl.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+    girl.materials[0].shader = lights_shader;
 
     greenman = LoadModel("models/greenman.glb");
     modelAnimations = LoadModelAnimations("models/greenman.glb", &animsCount);
+    greenman.materials[0].shader = lights_shader;
 }
 
 void player_update(float dt)
@@ -172,7 +175,7 @@ void player_update(float dt)
 void player_draw()
 {
     DrawModelEx(greenman, player.pos, (Vector3) {0.0,1.0,0.0}, player.angle_theta, (Vector3){0.5,0.5,0.5}, WHITE);
-    DrawModelEx(girl, (Vector3) {0.0,0.0,0.0}, (Vector3) {0.0,1.0,0.0}, 0.0, (Vector3){1.0,1.0,1.0}, WHITE);
+    DrawModelEx(girl, (Vector3) {0.0,0.0,0.0}, (Vector3) {0.0,1.0,0.0}, 180.0, (Vector3){1.0,1.0,1.0}, WHITE);
 
     if(g_debug)
     {
