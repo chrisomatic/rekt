@@ -40,6 +40,7 @@ void player_init()
     greenman = LoadModel("models/greenman.glb");
     modelAnimations = LoadModelAnimations("models/greenman.glb", &animsCount);
     greenman.materials[0].shader = lights_shader;
+    greenman.materials[1].shader = lights_shader;
 }
 
 void player_update(float dt)
@@ -160,7 +161,7 @@ void player_update(float dt)
 
     ModelAnimation anim = modelAnimations[animIndex];
 
-    if(Vector3Length(player.vel) > 0.0)
+    if(on_ground && Vector3Length(player.vel) > 0.0)
     {
         animCurrentFrame = (animCurrentFrame + 1)%anim.frameCount;
         UpdateModelAnimation(greenman, anim, animCurrentFrame);

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Build raylib library
-git clone --depth 1 https://github.com/raysan5/raylib.git raylib
+# git clone --depth 1 https://github.com/raysan5/raylib.git raylib
 cd raylib/src/
 make PLATFORM=PLATFORM_DESKTOP # To make the static version.
 sudo make install
