@@ -15,5 +15,6 @@ gcc main.c \
     terrain.c \
     sky.c \
     lights.c \
+    socket.c \
     -lraylib -lGL -lm \
     -o bin/rekt

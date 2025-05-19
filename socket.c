@@ -10,7 +10,8 @@
 #define PLATFORM PLATFORM_UNIX
 #endif
 
-#include "headers.h"
+#include <stdio.h>
+#include <string.h>
 
 #if PLATFORM == PLATFORM_WINDOWS
     #include <winsock2.h>
