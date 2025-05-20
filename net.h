@@ -7,7 +7,7 @@
 #define ONLINE_SERVER_IP "66.228.36.123"
 #define BITPACK_SIZE 32768
 
-#define MAX_CLIENTS     4
+#define MAX_CLIENTS 4
 
 #define FROM_SERVER 0xFF    //for messaging
 #define TO_ALL      0xFF    //for messaging
@@ -92,7 +92,7 @@ typedef struct Packet Packet;
 
 PACK(struct NetPlayerInput
 {
-    double delta_t;
+    float delta_t;
     uint32_t keys;
 });
 
@@ -163,10 +163,6 @@ double net_client_get_connected_time();
 uint32_t net_client_get_sent_bytes();
 uint32_t net_client_get_recv_bytes();
 void net_client_send_message(char* fmt, ...);
-uint32_t net_client_get_largest_packet_size_recv();
-uint32_t net_client_get_largest_packet_size_sent();
 int net_client_send(uint8_t* data, uint32_t len);
 int net_client_recv(Packet* pkt);
 void net_client_deinit();
-
-void test_packing();

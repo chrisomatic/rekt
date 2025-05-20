@@ -1,4 +1,7 @@
-#include "common.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
 #if _WIN32
 #include <WinSock2.h>
@@ -6,7 +9,10 @@
 #include <sys/select.h>
 #endif
 
+#include "timer.h"
+#include "bitpack.h"
 #include "circbuf.h"
+#include "player.h"
 #include "net.h"
 
 #define REDUNDANT_INPUTS 1
@@ -14,10 +20,10 @@
 #define ADDR_FMT "%u.%u.%u.%u:%u"
 #define ADDR_LST(addr) (addr)->a,(addr)->b,(addr)->c,(addr)->d,(addr)->port
 
-// #define SERVER_PRINT_SIMPLE 1
-// #define SERVER_PRINT_VERBOSE 1
+#define ENABLE_SERVER_LOGGING 0
+#define SERVER_LOG_MODE 1  // (0=SIMPLE, 1=VERBOSE)
 
-#if SERVER_PRINT_VERBOSE
+#if SERVER_PRINT_MODE==1
     #define LOGNV(format, ...) LOGN(format, ##__VA_ARGS__)
 #else
     #define LOGNV(format, ...) 0
@@ -59,7 +65,6 @@ typedef struct
     Packet prior_state_pkt;
     NetPlayerInput net_player_inputs[INPUT_QUEUE_MAX];
     int input_count;
-
 } ClientInfo;
 
 struct
@@ -68,9 +73,9 @@ struct
     NodeInfo info;
     ClientInfo clients[MAX_CLIENTS];
     NetEvent events[MAX_NET_EVENTS];
+    int event_count;
     BitPack bp;
     double start_time;
-    int event_count;
     int num_clients;
     uint8_t frame_no;
 } server = {0};
@@ -202,24 +207,15 @@ static bool is_empty_address(Address* addr)
 
 static void print_address(Address* addr)
 {
-    // printf( "is local: %d\n", is_local_address(addr));
-    // LOGN("[ADDR] %u.%u.%u.%u:%u",addr->a,addr->b,addr->c,addr->d,addr->port);
     LOGN("[ADDR] " ADDR_FMT, ADDR_LST(addr));
 }
 
 static bool compare_address(Address* addr1, Address* addr2, bool incl_port)
 {
-    // // if both are local ip address then compare port as well
-    // if(is_local_address(addr1) && is_local_address(addr2))
-    // {
-    //     return (memcmp(addr1, addr2, sizeof(Address)) == 0);
-    // }
-
     if(incl_port)
     {
         return (memcmp(addr1, addr2, sizeof(Address)) == 0);
     }
-
 
     return (addr1->a == addr2->a && addr1->b == addr2->b && addr1->c == addr2->c && addr1->d == addr2->d);
 }
@@ -309,11 +305,13 @@ static int net_send(NodeInfo* node_info, Address* to, Packet* pkt, int count)
     for(int i = 0; i < count; ++i)
         sent_bytes += socket_sendto(node_info->socket, to, (uint8_t*)pkt, pkt_len);
 
-#if SERVER_PRINT_SIMPLE==1
+#if ENABLE_SERVER_LOGGING
+#if SERVER_LOG_MODE==0
     print_packet_simple(pkt,"SEND");
-#elif SERVER_PRINT_VERBOSE==1
+#elif SERVER_LOG_MODE==1
     LOGN("[SENT] Packet %d (%u B)",pkt->hdr.id,sent_bytes);
     print_packet(pkt, false);
+#endif
 #endif
 
     node_info->local_latest_packet_id++;
@@ -334,12 +332,14 @@ static int net_recv(NodeInfo* node_info, Address* from, Packet* pkt)
 {
     int recv_bytes = socket_recvfrom(node_info->socket, from, (uint8_t*)pkt);
 
-#if SERVER_PRINT_SIMPLE
+#if ENABLE_SERVER_LOGGING
+#if SERVER_LOG_MODE==0
     print_packet_simple(pkt,"RECV");
-#elif SERVER_PRINT_VERBOSE
+#else
     LOGN("[RECV] Packet %d (%u B)",pkt->hdr.id,recv_bytes);
     print_address(from);
     print_packet(pkt, false);
+#endif
 #endif
 
     if(node_info == &client.info)
@@ -418,80 +418,6 @@ static int server_assign_new_client(Address* addr, ClientInfo** cli, char* name)
     LOGN("server_assign_new_client()");
     print_address(addr);
 
-#if COOL_SERVER_PLAYER_LOGIC
-    int cnt = 0;
-    for(int i = 0; i < MAX_CLIENTS; ++i)
-    {
-        if(server.clients[i].state != DISCONNECTED)
-        {
-            cnt++;
-        }
-    }
-    if(cnt == MAX_CLIENTS)
-    {
-        LOGN("Server is full and can't accept new clients.");
-        return 0;
-    }
-
-    for(int i = 0; i < MAX_CLIENTS; ++i)
-    {
-        // print_address(&server.clients[i].address);
-
-
-        bool addr_check = compare_address(&server.clients[i].address, addr, false);
-        bool name_check = memcmp(name, players[i].settings.name, PLAYER_NAME_MAX*sizeof(char)) == 0;
-        LOGNV("[%d] addr: %s, name: %s", i, BOOLSTR(addr_check), BOOLSTR(name_check));
-        LOGNV("    " ADDR_FMT " | " ADDR_FMT "", ADDR_LST(&server.clients[i].address), ADDR_LST(addr));
-        LOGNV("    '%s' | '%s'", players[i].settings.name, name);
-
-        if(addr_check && name_check)
-        {
-            if(server.clients[i].state == DISCONNECTED)
-            {
-
-                *cli = &server.clients[i];
-                (*cli)->client_id = i;
-                LOGN("Found client entry with same name and address (not connected) id: %d", (*cli)->client_id);
-                return 2;
-            }
-            else
-            {
-                LOGN("Client already connected with this name and address");
-                return 0;
-            }
-        }
-    }
-
-    for(int i = 0; i < MAX_CLIENTS; ++i)
-    {
-        // look for empty slot first
-        if(server.clients[i].state == DISCONNECTED && is_empty_address(&server.clients[i].address))
-        {
-            *cli = &server.clients[i];
-            (*cli)->client_id = i;
-            LOGN("Assigning new client: %d", (*cli)->client_id);
-            // printf("%s() new client %d\n", __func__, i);
-            return 1;
-        }
-    }
-
-    for(int i = 0; i < MAX_CLIENTS; ++i)
-    {
-        // take any disconnected slot
-        if(server.clients[i].state == DISCONNECTED)
-        {
-            *cli = &server.clients[i];
-            (*cli)->client_id = i;
-            LOGN("Assigning new client: %d", (*cli)->client_id);
-            // printf("%s() new client %d\n", __func__, i);
-            return 1;
-        }
-    }
-
-    return 0;
-
-#else
-
     // new client
     for(int i = 0; i < MAX_CLIENTS; ++i)
     {
@@ -500,14 +426,12 @@ static int server_assign_new_client(Address* addr, ClientInfo** cli, char* name)
             *cli = &server.clients[i];
             (*cli)->client_id = i;
             LOGN("Assigning new client: %d", (*cli)->client_id);
-            // printf("%s() new client %d\n", __func__, i);
             return 1;
         }
     }
 
     LOGN("Server is full and can't accept new clients.");
     return 0;
-#endif
 }
 
 static void update_server_num_clients()
@@ -522,20 +446,10 @@ static void update_server_num_clients()
     }
     server.num_clients = num_clients;
 
-// #if COOL_SERVER_PLAYER_LOGIC
-#if 1
     if(server.num_clients == 0)
     {
         LOGN("Everyone left!");
-        for(int i = 0; i < MAX_CLIENTS; ++i)
-        {
-            player_reset(&players[i]);
-            // memset(&server.clients[i],0, sizeof(ClientInfo));
-        }
-        trigger_generate_level(rand(), 1, 0, __LINE__);
     }
-#endif
-
 }
 
 static void remove_client(ClientInfo* cli)
@@ -565,10 +479,6 @@ static void server_send(PacketType type, ClientInfo* cli)
     {
         case PACKET_TYPE_INIT:
         {
-            pack_u32(&pkt,level_seed);
-            pack_u8(&pkt,(uint8_t)level_rank);
-            pack_u8(&pkt,server.frame_no); // for client-side prediction
-            net_send(&server.info,&cli->address,&pkt, 1);
         } break;
 
         case PACKET_TYPE_CONNECT_CHALLENGE:
@@ -609,62 +519,10 @@ static void server_send(PacketType type, ClientInfo* cli)
 
         case PACKET_TYPE_SETTINGS:
         {
-            int num_clients = 0;
-
-            pkt.data_len = 1;
-
-            for (int i = 0; i < MAX_CLIENTS; ++i)
-            {
-                if (server.clients[i].state == CONNECTED)
-                {
-                    pack_u8(&pkt, (uint8_t)i);
-                    pack_u8(&pkt, players[i].settings.class);
-                    pack_u32(&pkt, players[i].settings.color);
-                    pack_string(&pkt, players[i].settings.name, PLAYER_NAME_MAX);
-
-                    LOGN("Sending Settings, Client ID: %d", i);
-                    LOGN("  name: %s", players[i].settings.name);
-                    LOGN("  class: %u", players[i].settings.class);
-                    LOGN("  color: 0x%08x", players[i].settings.color);
-
-                    num_clients++;
-                }
-            }
-
-            pkt.data[0] = num_clients;
-
-            net_send(&server.info, &cli->address, &pkt, 1);
         } break;
 
         case PACKET_TYPE_STATE:
         {
-
-            bitpack_clear(&server.bp);
-
-            pack_players(&pkt, cli);
-            pack_creatures(&pkt, cli);
-            pack_projectiles(&pkt, cli);
-            pack_items(&pkt,cli);
-            pack_decals(&pkt, cli);
-            pack_events(&pkt,cli);
-            pack_other(&pkt, cli);
-
-            bitpack_flush(&server.bp);
-            bitpack_seek_begin(&server.bp);
-            //bitpack_print(&server.bp);
-
-            int num_bytes = server.bp.words_written*4;
-            pack_bytes(&pkt, (uint8_t*)server.bp.data, num_bytes);
-
-            //print_packet(&pkt, true);
-
-            if(memcmp(&cli->prior_state_pkt.data, &pkt.data, pkt.data_len) == 0)
-                break;
-
-            net_send(&server.info,&cli->address,&pkt, 1);
-
-            // copy state packet to prior state packet
-            memcpy(&cli->prior_state_pkt, &pkt, get_packet_size(&pkt));
 
         } break;
 
@@ -690,14 +548,6 @@ static void server_send(PacketType type, ClientInfo* cli)
 
 static void server_simulate(double dt)
 {
-    if(paused) return;
-
-    if(level_generate_triggered)
-    {
-        game_generate_level();
-        return;
-    }
-
     int player_count = 0;
 
     for(int i = 0; i < MAX_CLIENTS; ++i)
@@ -708,8 +558,6 @@ static void server_simulate(double dt)
 
         player_count++;
         Player* p = &players[cli->client_id];
-
-        //printf("Applying inputs to player. input count: %d\n", cli->input_count);
 
         if(cli->input_count == 0)
         {
@@ -731,20 +579,7 @@ static void server_simulate(double dt)
 
             cli->input_count = 0;
         }
-
-        //LOGN("[frame: %d] [packet id: %d] [client %d] pos: %f, %f, %f", server.frame_no,cli->remote_latest_packet_id,i, p->phys.pos.x,p->phys.pos.y, p->phys.pos.z);
     }
-
-    level_update(dt);
-    projectile_update_all(dt);
-    creature_update_all(dt);
-    item_update_all(dt);
-    explosion_update_all(dt);
-    decal_update_all(dt);
-
-    entity_build_all();
-    entity_update_all(dt);
-
 
     server.frame_no++;
     if(server.frame_no > 255)
@@ -764,10 +599,7 @@ int net_server_start()
     int sock;
 
     // set timers
-    timer_set_fps(&game_timer,TARGET_FPS);
     timer_set_fps(&server_timer,TICK_RATE);
-
-    timer_begin(&game_timer);
     timer_begin(&server_timer);
 
     LOGN("Creating socket.");
@@ -825,7 +657,6 @@ int net_server_start()
                 if(recv_pkt.data_len != 1024)
                 {
                     LOGN("Packet length doesn't equal %d",1024);
-                    // remove_client(cli);
                     break;
                 }
 
@@ -852,23 +683,8 @@ int net_server_start()
                         player_reset(&players[cli->client_id]);
                     }
 
-                    for(int i = 0; i < MAX_CLIENTS; ++i)
-                    {
-                        if(i == cli->client_id) continue;
-                        if(players[i].active)
-                        {
-                            if(ret == 1 || players[cli->client_id].phys.curr_room != players[i].phys.curr_room)
-                            {
-                                Vector2i tile = level_get_room_coords_by_pos(players[i].phys.pos.x, players[i].phys.pos.y);
-                                player_send_to_room(&players[cli->client_id], players[i].phys.curr_room, true, tile);
-                            }
-                            break;
-                        }
-                    }
-
                     // store salt
                     memcpy(cli->client_salt, salt, 8);
-                    // unpack_bytes(&recv_pkt, cli->client_salt, 8, &offset);
                     server_send(PACKET_TYPE_CONNECT_CHALLENGE, cli);
                 }
                 else
@@ -882,7 +698,6 @@ int net_server_start()
                     server_send(PACKET_TYPE_CONNECT_REJECTED, &tmp_cli);
                     break;
                 }
-
             }
             else
             {
@@ -946,87 +761,10 @@ int net_server_start()
 
                     case PACKET_TYPE_MESSAGE:
                     {
-                        uint8_t from = cli->client_id;
-                        // uint8_t to = unpack_u8(&recv_pkt, &offset);
-                        char msg[255+1] = {0};
-                        uint8_t msg_len = unpack_string(&recv_pkt, msg, 255, &offset);
-
-#if SERVER_PRINT_VERBOSE || 1
-                        LOGN("received message");
-                        LOGN("  from: %u", from);
-                        // LOGN("  to:   %u", to);
-                        LOGN("  msg:  %s", msg);
-#endif
-
-                        bool is_cmd = false;
-                        if(msg_len > 1)
-                        {
-                            if(memcmp("$", msg, 1) == 0)
-                            {
-                                is_cmd = true;
-                                char* argv[20] = {0};
-                                int argc = 0;
-
-                                for(int i = 0; i < 20; ++i)
-                                {
-                                    char* s = string_split_index_copy(msg+1, " ", i, true);
-                                    if(!s) break;
-                                    argv[argc++] = s;
-                                }
-
-                                bool ret = server_process_command(argv, argc, cli->client_id);
-
-                                if(!ret)
-                                {
-                                    server_send_message(from, FROM_SERVER, "Invalid command or command syntax");
-                                }
-                                else
-                                {
-                                    // server_send_message(from, FROM_SERVER, "%s has entered a command!", players[cli->client_id].settings.name);
-                                }
-
-                                // free
-                                for(int i = 0; i < argc; ++i)
-                                {
-                                    free(argv[i]);
-                                }
-
-                            }
-                        }
-
-                        if(!is_cmd)
-                        {
-                            server_send_message(TO_ALL, from, "%s", msg);
-                        }
                     } break;
 
                     case PACKET_TYPE_SETTINGS:
                     {
-                        Player* p = &players[cli->client_id];
-
-                        uint8_t class = unpack_u8(&recv_pkt, &offset);
-                        p->settings.class = class;
-                        player_set_class(p, class);
-
-                        uint32_t color = unpack_u32(&recv_pkt, &offset);
-                        p->settings.color = color;
-
-                        memset(p->settings.name, 0, PLAYER_NAME_MAX);
-                        uint8_t namelen = unpack_string(&recv_pkt, p->settings.name, PLAYER_NAME_MAX, &offset);
-
-                        LOGN("Server Received Settings, Client ID: %d", cli->client_id);
-                        LOGN("  color: 0x%08x", p->settings.color);
-                        LOGN("  class: %u", p->settings.class);
-                        LOGN("  name (%u): %s", namelen, p->settings.name);
-
-                        for(int i = 0; i < MAX_CLIENTS; ++i)
-                        {
-                            ClientInfo* cli = &server.clients[i];
-                            if(cli == NULL) continue;
-                            if(cli->state != CONNECTED) continue;
-
-                            server_send(PACKET_TYPE_SETTINGS,cli);
-                        }
                     } break;
 
                     case PACKET_TYPE_PING:
@@ -1098,7 +836,6 @@ int net_server_start()
 
                 // clear out any queued events
                 server.event_count = 0;
-
             }
             accum = 0.0;
         }
